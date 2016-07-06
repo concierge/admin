@@ -1,0 +1,6 @@
+﻿{
+  "name": "admin",
+  "version": 1.0,
+  "startup": "admin.js",
+  "priority": "first"
+}
