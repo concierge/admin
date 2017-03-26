@@ -104,10 +104,19 @@
             }
             return false;
         };
+    },
+
+    helpHook = function (moduleName, origionalHelp, config) {
+        return function(commandPrefix, event) {
+            if (getHasPermission(config, event.sender_id, event.sender_name, event.thread_id, moduleName)) {
+               return origionalHelp.call(this, commandPrefix);
+            }
+            return false;
+        };
     };
 
 exports.load = function () {
-    cfg = this.config;
+    cfg = exports.config;
     var loadedModules = this.modulesLoader.getLoadedModules('module');
     for (var i = 0; i < loadedModules.length; i++) {
         var match = loadedModules[i].match;
@@ -116,8 +125,11 @@ exports.load = function () {
     this.modulesLoader.on('load', (event) => {
         let module =  event.module;
         if (module.__descriptor.type.includes('module')) {
-            var match = module.match;
+            var match = module.match,
+                help = module.help;
+
             module.match = matchHook(module.__descriptor.name, match, cfg);
+            module.help = helpHook(module.__descriptor.name, help, cfg);
         }
     });
 };
