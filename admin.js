@@ -58,7 +58,7 @@
                 var newArr = cfg.users[name][threadId].filter(function(item) {
                     return item !== action;
                 });
-                if (newArr.length === cfg.users[name][threadId].length) {
+                if (newArr.length !== 0 && newArr.length === cfg.users[name][threadId].length) {
                     return false;
                 }
                 cfg.users[name][threadId] = newArr;
@@ -88,7 +88,7 @@
             var newArr = cfg.modules[name].filter(function (item) {
                 return item === action;
             });
-            if (newArr.length === cfg.modules[name].length) {
+            if (newArr.length !== 0 && newArr.length === cfg.modules[name].length) {
                 return false;
             }
             cfg.modules[name] = newArr;
@@ -109,22 +109,29 @@
     helpHook = function (moduleName, origionalHelp, config) {
         return function(commandPrefix, event) {
             if (getHasPermission(config, event.sender_id, event.sender_name, event.thread_id, moduleName)) {
-                return origionalHelp.call(this, commandPrefix);
+               return origionalHelp.call(this, commandPrefix);
             }
             return false;
         };
     };
 
 exports.load = function () {
-    cfg = exports.platform.config.getConfig('admin');
-    var loadedModules = exports.platform.modulesLoader.getLoadedModules();
+    cfg = exports.config;
+    var loadedModules = this.modulesLoader.getLoadedModules('module');
     for (var i = 0; i < loadedModules.length; i++) {
-        var help = loadedModules[i].help,
-            match = loadedModules[i].match;
-
-        loadedModules[i].help = helpHook(loadedModules[i].name, help, cfg);
-        loadedModules[i].match = matchHook(loadedModules[i].name, match, cfg);
+        var match = loadedModules[i].match;
+        loadedModules[i].match = matchHook(loadedModules[i].__descriptor.name, match, cfg);
     }
+    this.modulesLoader.on('load', (event) => {
+        let module =  event.module;
+        if (module.__descriptor.type.includes('module')) {
+            var match = module.match,
+                help = module.help;
+
+            module.match = matchHook(module.__descriptor.name, match, cfg);
+            module.help = helpHook(module.__descriptor.name, help, cfg);
+        }
+    });
 };
 
 exports.match = function (event, commandPrefix) {
