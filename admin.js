@@ -100,7 +100,7 @@
     matchHook = function (moduleName, origionalMatch, config) {
         return function(event, commandPrefix) {
             if (getHasPermission(config, event.sender_id, event.sender_name, event.thread_id, moduleName)) {
-                return origionalMatch.call(this, event, commandPrefix);
+                return origionalMatch.call(exports.platform, event, commandPrefix);
             }
             return false;
         };
@@ -109,7 +109,7 @@
     helpHook = function (moduleName, origionalHelp, config) {
         return function(commandPrefix, event) {
             if (getHasPermission(config, event.sender_id, event.sender_name, event.thread_id, moduleName)) {
-               return origionalHelp.call(this, commandPrefix);
+                return origionalHelp.call(exports.platform, commandPrefix);
             }
             return false;
         };
@@ -117,12 +117,15 @@
 
 exports.load = function () {
     cfg = exports.config;
-    var loadedModules = this.modulesLoader.getLoadedModules('module');
+    var loadedModules = exports.platform.modulesLoader.getLoadedModules('module');
     for (var i = 0; i < loadedModules.length; i++) {
-        var match = loadedModules[i].match;
+        var match = loadedModules[i].match,
+            help = loadedModules[i].help;
+
         loadedModules[i].match = matchHook(loadedModules[i].__descriptor.name, match, cfg);
+        loadedModules[i].help = helpHook(loadedModules[i].__descriptor.name, help, cfg);
     }
-    this.modulesLoader.on('load', (event) => {
+    exports.platform.modulesLoader.on('load', (event) => {
         let module =  event.module;
         if (module.__descriptor.type.includes('module')) {
             var match = module.match,
