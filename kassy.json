@@ -1,6 +1,11 @@
 ﻿{
-  "name": "admin",
-  "version": 1.1,
-  "startup": "admin.js",
-  "priority": "first"
+    "name": "admin",
+    "version": 2.0,
+    "startup": "admin.js",
+    "priority": "last",
+    "command": "admin",
+    "help": [
+        ["{{commandPrefix}}admin --help", "Get help with the admin module.",
+            "Lists all of the commands that can be used with the admin module and the arguments that must be passed to them."]
+    ]
 }
