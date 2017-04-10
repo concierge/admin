@@ -1,184 +1,164 @@
-﻿var cfg = null,
+const argumentParser = require('concierge/arguments');
 
-    getHasPermission = function (config, userId, name, threadId, moduleName) {
-        if (!config.modules || !config.modules[moduleName] || config.modules[moduleName].length === 0) {
-            return true;
-        }
+const cleanString = str => str.trim().toLowerCase();
 
-        if (!config.users || Object.keys(config.users).length === 0) {
-            return false;
-        }
-
-        var user = config.users[userId] || config.users[name];
-        if (!user) {
-            return false;
-        }
-
-        var tId = null;
-        for (var thread in user) {
-            var test = new RegExp(thread);
-            if (test.test(threadId)) {
-                tId = thread;
-                break;
-            }
-        }
-        if (!tId || user[tId].length === 0) {
-            return false;
-        }
-
-        var common = user[tId].filter(function (p) {
-            return config.modules[moduleName].indexOf(p) !== -1;
-        });
-
-        return common.length >= 1;
-    },
-
-    modify = function (name, threadId, action, method) {
-        if (!cfg.users) {
-            cfg.users = {};
-        }
-
-        if (!cfg.users[name]) {
-            cfg.users[name] = {};
-        }
-
-        if (!cfg.users[name][threadId]) {
-            cfg.users[name][threadId] = [];
-        }
-
-        switch (method) {
-            case 'grant': {
-                if (!cfg.users[name][threadId].includes(action)) {
-                    cfg.users[name][threadId].push(action);
-                    return true;
-                }
-                return false;
-            }
-            case 'revoke': {
-                var newArr = cfg.users[name][threadId].filter(function(item) {
-                    return item !== action;
-                });
-                if (newArr.length !== 0 && newArr.length === cfg.users[name][threadId].length) {
-                    return false;
-                }
-                cfg.users[name][threadId] = newArr;
-                return true;
-            }
-        }
-    },
-
-    setup = function (action, name, permission) {
-        if (!cfg.modules) {
-            cfg.modules = {};
-        }
-
-        if (!cfg.modules[name]) {
-            cfg.modules[name] = [];
-        }
-
-        switch (action) {
-        case 'create': {
-            if (!cfg.modules[name].includes(permission)) {
-                cfg.modules[name].push(permission);
-                return true;
-            }
-            return false;
-        }
-        case 'delete': {
-            var newArr = cfg.modules[name].filter(function (item) {
-                return item === action;
-            });
-            if (newArr.length !== 0 && newArr.length === cfg.modules[name].length) {
-                return false;
-            }
-            cfg.modules[name] = newArr;
-            return true;
-        }
-        }
-    },
-
-    matchHook = function (moduleName, origionalMatch, config) {
-        return function(event, commandPrefix) {
-            if (getHasPermission(config, event.sender_id, event.sender_name, event.thread_id, moduleName)) {
-                return origionalMatch.call(this, event, commandPrefix);
-            }
-            return false;
-        };
-    },
-
-    helpHook = function (moduleName, origionalHelp, config) {
-        return function(commandPrefix, event) {
-            if (getHasPermission(config, event.sender_id, event.sender_name, event.thread_id, moduleName)) {
-               return origionalHelp.call(this, commandPrefix);
-            }
-            return false;
-        };
-    };
-
-exports.load = function () {
-    cfg = exports.config;
-    var loadedModules = this.modulesLoader.getLoadedModules('module');
-    for (var i = 0; i < loadedModules.length; i++) {
-        var match = loadedModules[i].match;
-        loadedModules[i].match = matchHook(loadedModules[i].__descriptor.name, match, cfg);
+const getHasPermission = (event, moduleName) => {
+    if (!exports.config.modules || !exports.config.modules[moduleName] || exports.config.modules[moduleName].length === 0) {
+        return true;
     }
-    this.modulesLoader.on('load', (event) => {
-        let module =  event.module;
-        if (module.__descriptor.type.includes('module')) {
-            var match = module.match,
-                help = module.help;
 
-            module.match = matchHook(module.__descriptor.name, match, cfg);
-            module.help = helpHook(module.__descriptor.name, help, cfg);
-        }
-    });
-};
-
-exports.match = function (event, commandPrefix) {
-    return event.arguments[0] === commandPrefix + 'admin';
-};
-
-exports.help = function (commandPrefix) {
-    return [
-        [commandPrefix + 'admin <grant/revoke> <fullName/userId> <permissionName>', 'Grant or revoke a permission for a user.',
-            'Assigns/removes a permission from a user. Once a user has a permission they can use any core modules with the ' +
-            'corresponding permission (and any that have no permissions/none configured).'],
-        [commandPrefix + 'admin <create/delete> <coreModuleName> <permissionName>', 'Create or delete a permission for a core module.',
-            'Creates/deletes a permission on a core module. A user with the corresponding permission can use the core module.']
-    ];
-};
-
-exports.run = function (api, event) {
-    if (event.arguments.length !== 4) {
-        api.sendMessage('Usage:\n' +
-            '- admin <grant/revoke> <fullName/userId> <permissionName>\n' +
-            '- admin <create/delete> <coreModuleName> <permissionName>\n' +
-            'For spaces in any section, encapsulate with double quotes (").', event.thread_id);
+    if (!exports.config.users || Object.keys(exports.config.users).length === 0) {
         return false;
     }
 
-    var action = (event.arguments[1] + '').trim().toLowerCase();
-    var permission = (event.arguments[3] + '').trim().toLowerCase();
+    const users = [exports.config.users[event.sender_id], exports.config.users[cleanString(event.sender_name)]].filter(u => u !== void(0) && u !== null);
+    if (!users.length === 0) {
+        return false;
+    }
 
-    if (action === 'create' || action === 'delete') {
-        if (!setup(action, event.arguments[2], permission)) {
-            api.sendMessage('Failed to set permissions. Please ensure permission has not already been ' + action + 'ed.', event.thread_id);
+    let res = false;
+    for (let user of users) {
+        const tIds = Object.keys(user).filter(thread => (new RegExp(thread)).test(event.thread_id));
+        for (let tId of tIds) {
+            res = res || !!exports.config.modules[moduleName].find(p => user[tId].includes(p));
+        }
+    }
+    return res;
+};
+
+const ensureCreated = (object, name, defaultVal = {}) => {
+    if (Array.isArray(name)) {
+        let curr = object;
+        for (let i = 0; i < name.length; i++) {
+            curr = ensureCreated(curr, name[i], i + 1 === name.length ? defaultVal : {});
+        }
+        return curr;
+    }
+    if (!object[name]) {
+        object[name] = defaultVal;
+    }
+    return object[name];
+};
+
+const helpMiddleware = (mod, commandPrefix, event, next) => getHasPermission(event, mod.__descriptor.name) ? next() : false;
+const matchMiddleware = (event, commandPrefix, descriptor, next) => getHasPermission(event, descriptor.name) ? next() : false;
+
+// as help is its own module, it could load or unload at any time... sigh
+let loaded = false;
+const insertHelpMiddleware = () => {
+    const help = exports.platform.getModule('help');
+    // .length doesn't exist when length === 1, so help.length === 1 is always false
+    if (!loaded && help && help.length !== 0 && !(help.length > 1) && help.use) {
+        help.use('getHelp', helpMiddleware);
+        loaded = true;
+    }
+};
+
+const removeHelpMiddleware = () => {
+    const help = exports.platform.getModule('help');
+    if (loaded && help && help.length !== 0 && !(help.length > 1) && help.unuse) {
+        help.unuse('getHelp', helpMiddleware);
+        loaded = false;
+    }
+};
+
+exports.load = platform => {
+    platform.use('match', matchMiddleware);
+    insertHelpMiddleware();
+    platform.modulesLoader.on('load', insertHelpMiddleware);
+    platform.modulesLoader.on('preunload', removeHelpMiddleware);
+};
+
+exports.unload = () => {
+    exports.platform.unuse('match', matchMiddleware);
+    exports.platform.modulesLoader.removeListener('load', insertHelpMiddleware);
+    exports.platform.modulesLoader.removeListener('preunload', removeHelpMiddleware);
+    removeHelpMiddleware();
+};
+
+exports.run = (api, event) => {
+    const adminArguments = [
+        {
+            long: 'create',
+            short: 'c',
+            description: 'Assigns a new/existing permission to a module.',
+            expects: ['Module Name', 'Permission Name'],
+            run: (out, values) => {
+                const name = values[0].trim().toLowerCase(),
+                    permission = values[1].trim().toLowerCase();
+                ensureCreated(exports.config, ['modules', name], []);
+                if (exports.config.modules[name].includes(permission)) {
+                    throw new Error('Failed to create permission. Please ensure permission has not already been created.');
+                }
+                exports.config.modules[name].push(permission);
+            }
+        },
+        {
+            long: 'delete',
+            short: 'd',
+            description: 'Removes an existing permission from a module.',
+            expects: ['Module Name', 'Permission Name'],
+            run: (out, values) => {
+                const name = cleanString(values[0]),
+                    permission = cleanString(values[1]);
+                ensureCreated(exports.config, ['modules', name], []);
+                const index = exports.config.modules[name].findIndex(i => i === permission);
+                if (index < 0) {
+                    throw new Error('Failed to delete permission. Please ensure permission has not already been deleted.');
+                }
+                exports.config.modules[name].splice(index, 1);
+            }
+        },
+        {
+            long: 'grant',
+            short: 'g',
+            description: 'Adds a timestamp to each output log message.',
+            expects: ['Full Username/ID', 'Permission Name'],
+            run: (out, values) => {
+                const username = cleanString(values[0]),
+                    permission = cleanString(values[1]);
+                ensureCreated(exports.config, ['users', username, event.thread_id], []);
+                if (exports.config.users[username][event.thread_id].includes(permission)) {
+                    throw new Error('Failed to grant user permission. Please ensure permission has not already been granted.');
+                }
+                exports.config.users[username][event.thread_id].push(permission);
+            }
+        },
+        {
+            long: 'revoke',
+            short: 'r',
+            description: 'Sets the locale that should be used by the bot.',
+            expects: ['Full Username/ID', 'Permission Name'],
+            run: (out, values) => {
+                const username = cleanString(values[0]),
+                    permission = cleanString(values[1]);
+                ensureCreated(exports.config, ['users', username, event.thread_id], []);
+                const index = exports.config.users[username][event.thread_id].findIndex(i => i === permission);
+                if (index < 0) {
+                    throw new Error('Failed to revoke user permission. Please ensure permission has not already been revoked.');
+                }
+                exports.config.users[username][event.thread_id].splice(index, 1);
+            }
+        }
+    ];
+
+    try {
+        const args = argumentParser.parseArguments(event.arguments.slice(1), adminArguments, {
+            enabled: true,
+            string: `${api.commandPrefix}admin`,
+            colours: false
+        });
+        if (args.parsed['-h']) {
+            api.sendMessage(args.parsed['-h'].out, event.thread_id);
+        }
+        else if (args.unassociated.length > 0 || event.arguments.length === 1) {
+            api.sendMessage('Invalid usage of admin. Only grant, revoke, create and delete are avalible. See help or -h for usage.', event.thread_id);
         }
         else {
             api.sendMessage('Complete.', event.thread_id);
         }
     }
-    else if (action === 'grant' || action === 'revoke') {
-        if (!modify(event.arguments[2], event.thread_id, permission, action)) {
-            api.sendMessage('Failed to set permissions. Please ensure permission has not already been modified with ' + action + '.', event.thread_id);
-        }
-        else {
-            api.sendMessage('Complete.', event.thread_id);
-        }
+    catch (e) {
+        api.sendMessage(e.message, event.thread_id);
     }
-    else {
-        api.sendMessage('Only grant, revoke, create and delete are avalible.', event.thread_id);
-    }
-
-    return false;
 };
