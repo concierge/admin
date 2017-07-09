@@ -1,6 +1,6 @@
 ﻿{
     "name": "admin",
-    "version": 2.0,
+    "version": 2.1,
     "startup": "admin.js",
     "priority": "last",
     "command": "admin",

@@ -49,3 +49,4 @@ For example, if you had the users "foo" and "bar". "foo" should be able to shutd
 - Users without access to a module will not see help for that module (if help is installed) and will not receive responses from it.
 - It is possible to lock out everyone from a module. In the case that both `/shutdown` and `/restart` have no users that can access them - it is not possible to shutdown while safely saving module configuration.
 - Other modules such as `kpm` can edit the configuration of `admin` at any time.
+- The default user used by `test` integration is named `TESTING`.

@@ -1,6 +1,6 @@
 const argumentParser = require('concierge/arguments');
 
-const cleanString = str => str.trim().toLowerCase();
+const cleanString = str => String(str).trim().toLowerCase();
 
 const getHasPermission = (event, moduleName) => {
     if (!exports.config.modules || !exports.config.modules[moduleName] || exports.config.modules[moduleName].length === 0) {
@@ -11,7 +11,7 @@ const getHasPermission = (event, moduleName) => {
         return false;
     }
 
-    const users = [exports.config.users[event.sender_id], exports.config.users[cleanString(event.sender_name)]].filter(u => u !== void(0) && u !== null);
+    const users = [exports.config.users[event.sender_id], exports.config.users[event.sender_name], exports.config.users[cleanString(event.sender_name)]].filter(u => u !== void(0) && u !== null);
     if (!users.length === 0) {
         return false;
     }
@@ -84,8 +84,8 @@ exports.run = (api, event) => {
             description: 'Assigns a new/existing permission to a module.',
             expects: ['Module Name', 'Permission Name'],
             run: (out, values) => {
-                const name = values[0].trim().toLowerCase(),
-                    permission = values[1].trim().toLowerCase();
+                const name = cleanString(values[0]),
+                    permission = cleanString(values[1]);
                 ensureCreated(exports.config, ['modules', name], []);
                 if (exports.config.modules[name].includes(permission)) {
                     throw new Error('Failed to create permission. Please ensure permission has not already been created.');
