@@ -13,14 +13,14 @@ Configuration takes the form of the `admin` section in its `config.json` file in
 {
     "modules": {
         "<Module Name1>": ["<permissionName1>", "<permissionName2>", ...],
-		"<Module Name2>": ["<permissionName3>", "<permissionName1>", ...],
+        "<Module Name2>": ["<permissionName3>", "<permissionName1>", ...],
         ...
     },
     "users": {
         "<Users Full Name Or ID in Lowercase>": {
             "<Thread Id Regex>": ["<permissionName1>", "<permissionName2>"]
         },
-		...
+        ...
     }
 }
 ```
@@ -30,13 +30,13 @@ For example, if you had the users "foo" and "bar". "foo" should be able to shutd
 {
     "modules": {
         "shutdown": ["canShutdown"],
-		"update": ["canUpdate"]
+        "update": ["canUpdate"]
     },
     "users": {
         "foo": {
             ".*": ["canShutdown", "canUpdate"]
         },
-		"bar": {
+        "bar": {
             ".*": ["canUpdate"]
         }
     }
